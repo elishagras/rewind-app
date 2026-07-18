@@ -2,51 +2,57 @@ import { useState, useRef, useEffect } from "react";
 import { getSongSuggestions, getYouTubeVideoId, getRecommendations, getSearchSuggestions, generateMoreSongs, MOOD_PRESETS, SIDEBAR_PLAYLISTS } from "./api";
 import { logSession, logFamiliarSong, logUnfamiliarSong, logSearchedSong, buildPersonalizationContext, getJournalSummary, getUnfamiliarForMood } from "./journal";
 
-function Sidebar({ page, setPage }) {
+function Sidebar({ page, setPage, isOpen, onClose }) {
   return (
-    <div className="sidebar">
-      <div className="sidebar-top">
-        <div className="sidebar-brand">Rewind</div>
-        <button
-          className={"sidebar-nav-item" + (page === "home" ? " active" : "")}
-          onClick={function() { setPage("home"); }}
-        >
-          <span className="sidebar-nav-icon">&#9632;</span>
-          Home
-        </button>
-        <button
-          className={"sidebar-nav-item" + (page === "taste" ? " active taste-active" : "")}
-          onClick={function() { setPage("taste"); }}
-        >
-          <span className="sidebar-nav-icon">&#9733;</span>
-          My Taste
-        </button>
-      </div>
-      <div className="sidebar-library">
-        <div className="sidebar-library-header">
-          <span>Your Library</span>
-          <button className="sidebar-library-add">+</button>
+    <>
+      <div
+        className={"sidebar-overlay" + (isOpen ? " open" : "")}
+        onClick={onClose}
+      />
+      <div className={"sidebar" + (isOpen ? " open" : "")}>
+        <div className="sidebar-top">
+          <div className="sidebar-brand">Rewind</div>
+          <button
+            className={"sidebar-nav-item" + (page === "home" ? " active" : "")}
+            onClick={function() { setPage("home"); onClose(); }}
+          >
+            <span className="sidebar-nav-icon">&#9632;</span>
+            Home
+          </button>
+          <button
+            className={"sidebar-nav-item" + (page === "taste" ? " active taste-active" : "")}
+            onClick={function() { setPage("taste"); onClose(); }}
+          >
+            <span className="sidebar-nav-icon">&#9733;</span>
+            My Taste
+          </button>
         </div>
-        <div className="sidebar-create-card">
-          <div className="sidebar-create-title">Create your first playlist</div>
-          <div className="sidebar-create-sub">It is easy, we will help you</div>
-          <button className="sidebar-create-btn">Create playlist</button>
-        </div>
-        <div className="sidebar-playlists">
-          {SIDEBAR_PLAYLISTS.map(function(pl) {
-            return (
-              <div key={pl.id} className="sidebar-playlist-item">
-                <div className="sidebar-playlist-thumb" style={{ background: pl.color }} />
-                <div>
-                  <div className="sidebar-playlist-title">{pl.title}</div>
-                  <div className="sidebar-playlist-meta">{pl.meta}</div>
+        <div className="sidebar-library">
+          <div className="sidebar-library-header">
+            <span>Your Library</span>
+            <button className="sidebar-library-add">+</button>
+          </div>
+          <div className="sidebar-create-card">
+            <div className="sidebar-create-title">Create your first playlist</div>
+            <div className="sidebar-create-sub">It is easy, we will help you</div>
+            <button className="sidebar-create-btn">Create playlist</button>
+          </div>
+          <div className="sidebar-playlists">
+            {SIDEBAR_PLAYLISTS.map(function(pl) {
+              return (
+                <div key={pl.id} className="sidebar-playlist-item">
+                  <div className="sidebar-playlist-thumb" style={{ background: pl.color }} />
+                  <div>
+                    <div className="sidebar-playlist-title">{pl.title}</div>
+                    <div className="sidebar-playlist-meta">{pl.meta}</div>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -174,21 +180,13 @@ function MiniPlayer({ nowPlaying, expanded, onExpand, onEnded, onPrevious }) {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           {onPrevious && (
-            <button className="mini-player-expand" onClick={onPrevious} title="Previous">
-              ⏮
-            </button>
+            <button className="mini-player-expand" onClick={onPrevious} title="Previous">⏮</button>
           )}
-          <button
-            className="mini-player-playpause"
-            onClick={handlePlayPause}
-            title={isPlaying ? "Pause" : "Play"}
-          >
+          <button className="mini-player-playpause" onClick={handlePlayPause}>
             {isPlaying ? "⏸" : "▶"}
           </button>
           {onEnded && (
-            <button className="mini-player-expand" onClick={onEnded} title="Next">
-              ⏭
-            </button>
+            <button className="mini-player-expand" onClick={onEnded} title="Next">⏭</button>
           )}
           <button className="mini-player-expand" onClick={onExpand}>
             {expanded ? "Collapse" : "Now Playing"}
@@ -356,6 +354,7 @@ export default function App() {
   const [activeSongIndex, setActiveSongIndex] = useState(null);
   const [generatingMore, setGeneratingMore] = useState(false);
   const [selectedMoodId, setSelectedMoodId] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const searchRef = useRef(null);
   const suggestTimer = useRef(null);
   const songRefs = useRef({});
@@ -370,24 +369,21 @@ export default function App() {
     return function() { document.removeEventListener("mousedown", handleClick); };
   }, []);
 
-  const playTimerRef = useRef(null);
-
-function playSong(videoId, title, artist, index) {
-  if (playTimerRef.current) clearInterval(playTimerRef.current);
-  setNowPlaying(null);
-  if (index !== undefined) {
-    setActiveSongIndex(index);
+  function playSong(videoId, title, artist, index) {
+    setNowPlaying(null);
+    if (index !== undefined) {
+      setActiveSongIndex(index);
+      setTimeout(function() {
+        if (songRefs.current[index]) {
+          songRefs.current[index].scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 100);
+    }
     setTimeout(function() {
-      if (songRefs.current[index]) {
-        songRefs.current[index].scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    }, 100);
+      setNowPlaying({ videoId, title, artist, index });
+      setPlayerExpanded(true);
+    }, 50);
   }
-  setTimeout(function() {
-    setNowPlaying({ videoId, title, artist, index });
-    setPlayerExpanded(true);
-  }, 50);
-}
 
   function playNext() {
     if (activeSongIndex === null || songs.length === 0) return;
@@ -400,13 +396,13 @@ function playSong(videoId, title, artist, index) {
   }
 
   function playPrevious() {
-  if (activeSongIndex === null || activeSongIndex === 0) return;
-  var prevIndex = activeSongIndex - 1;
-  var prevSong = songs[prevIndex];
-  if (prevSong && prevSong.videoId) {
-    playSong(prevSong.videoId, prevSong.title, prevSong.artist, prevIndex);
+    if (activeSongIndex === null || activeSongIndex === 0) return;
+    var prevIndex = activeSongIndex - 1;
+    var prevSong = songs[prevIndex];
+    if (prevSong && prevSong.videoId) {
+      playSong(prevSong.videoId, prevSong.title, prevSong.artist, prevIndex);
+    }
   }
-}
 
   async function handleSearchInput(e) {
     const val = e.target.value;
@@ -457,12 +453,13 @@ function playSong(videoId, title, artist, index) {
       const filteredSongs = mood.songs.filter(function(s) {
         return !unfamiliar.includes(s.title + " by " + s.artist);
       });
+
       const shuffledSongs = filteredSongs.slice().sort(function() {
         return Math.random() - 0.5;
       });
-  
+
       var songsToLoad = shuffledSongs;
-  
+
       if (unfamiliar.length > 0) {
         try {
           const context = buildPersonalizationContext();
@@ -470,15 +467,15 @@ function playSong(videoId, title, artist, index) {
             mood.memory,
             mood.artists,
             context,
-            filteredSongs
+            shuffledSongs
           );
           var combined = shuffledSongs.concat(replacements).slice(0, 10);
           songsToLoad = combined;
         } catch(e) {
-          songsToLoad = filteredSongs;
+          songsToLoad = shuffledSongs;
         }
       }
-  
+
       const songsWithVideos = await Promise.all(
         songsToLoad.map(async function(song) {
           const videoId = await getYouTubeVideoId(song.title, song.artist);
@@ -491,7 +488,7 @@ function playSong(videoId, title, artist, index) {
           };
         })
       );
-  
+
       setSongs(songsWithVideos);
       logSession(mood.id, mood.memory, songsWithVideos);
       setPage("player");
@@ -591,8 +588,15 @@ function playSong(videoId, title, artist, index) {
     return (
       <>
         <div className="app-layout">
-          <Sidebar page={page} setPage={setPage} />
+          <Sidebar page={page} setPage={setPage} isOpen={sidebarOpen} onClose={function() { setSidebarOpen(false); }} />
           <div className="main-content">
+            <div className="mobile-top-bar">
+              <button className="hamburger" onClick={function() { setSidebarOpen(!sidebarOpen); }}>
+                <span /><span /><span />
+              </button>
+              <span className="mobile-top-bar-brand">Rewind</span>
+              <div style={{ width: "38px" }} />
+            </div>
             <div className="loading-page">
               <h2 className="loading-headline">Reaching back into memory...</h2>
               <p className="loading-sub">Finding music that already knows you</p>
@@ -612,8 +616,17 @@ function playSong(videoId, title, artist, index) {
     return (
       <>
         <div className="app-layout">
-          <Sidebar page={page} setPage={setPage} />
+          <Sidebar page={page} setPage={setPage} isOpen={sidebarOpen} onClose={function() { setSidebarOpen(false); }} />
           <div className="main-content">
+            <div className="mobile-top-bar">
+              <button className="hamburger" onClick={function() { setSidebarOpen(!sidebarOpen); }}>
+                <span /><span /><span />
+              </button>
+              <span className="mobile-top-bar-brand">
+                {activeMoodForPlayer ? activeMoodForPlayer.title : "Your songs"}
+              </span>
+              <div style={{ width: "38px" }} />
+            </div>
             <div className="player-page">
               <div className="player-nav">
                 <div>
@@ -737,8 +750,15 @@ function playSong(videoId, title, artist, index) {
     return (
       <>
         <div className="app-layout">
-          <Sidebar page={page} setPage={setPage} />
+          <Sidebar page={page} setPage={setPage} isOpen={sidebarOpen} onClose={function() { setSidebarOpen(false); }} />
           <div className="main-content">
+            <div className="mobile-top-bar">
+              <button className="hamburger" onClick={function() { setSidebarOpen(!sidebarOpen); }}>
+                <span /><span /><span />
+              </button>
+              <span className="mobile-top-bar-brand">You may also like</span>
+              <div style={{ width: "38px" }} />
+            </div>
             <div className="recs-page">
               <div className="recs-nav">
                 <span className="player-title">You may also like</span>
@@ -811,8 +831,15 @@ function playSong(videoId, title, artist, index) {
     return (
       <>
         <div className="app-layout">
-          <Sidebar page={page} setPage={setPage} />
+          <Sidebar page={page} setPage={setPage} isOpen={sidebarOpen} onClose={function() { setSidebarOpen(false); }} />
           <div className="main-content">
+            <div className="mobile-top-bar">
+              <button className="hamburger" onClick={function() { setSidebarOpen(!sidebarOpen); }}>
+                <span /><span /><span />
+              </button>
+              <span className="mobile-top-bar-brand">My Taste</span>
+              <div style={{ width: "38px" }} />
+            </div>
             <MyTastePage />
           </div>
         </div>
@@ -824,14 +851,59 @@ function playSong(videoId, title, artist, index) {
   return (
     <>
       <div className="app-layout">
-        <Sidebar page={page} setPage={setPage} />
+        <Sidebar page={page} setPage={setPage} isOpen={sidebarOpen} onClose={function() { setSidebarOpen(false); }} />
         <div className="main-content">
+          <div className="mobile-top-bar">
+            <button className="hamburger" onClick={function() { setSidebarOpen(!sidebarOpen); }}>
+              <span /><span /><span />
+            </button>
+            <span className="mobile-top-bar-brand">Rewind</span>
+            <div style={{ width: "38px" }} />
+          </div>
+
           <div className="top-bar">
             <div>
               <div className="top-bar-title">Good evening</div>
               <div className="top-bar-sub">Pick a mood or describe your own</div>
             </div>
             <div className="search-wrapper" ref={searchRef}>
+              <form onSubmit={function(e) { e.preventDefault(); handleSearch(); }} className="search-form">
+                <input
+                  type="text"
+                  className="search-input"
+                  placeholder="Search a song or artist..."
+                  value={searchQuery}
+                  onChange={handleSearchInput}
+                  onFocus={function() { if (suggestions.length > 0) setShowDropdown(true); }}
+                  autoComplete="off"
+                />
+                <button type="submit" className="search-submit" disabled={searchLoading}>
+                  {searchLoading ? "..." : "Play"}
+                </button>
+              </form>
+              {showDropdown && suggestions.length > 0 && (
+                <div className="search-dropdown">
+                  {suggestions.map(function(s, i) {
+                    return (
+                      <div
+                        key={i}
+                        className="search-dropdown-item"
+                        onClick={function() { handleSearch(s); }}
+                      >
+                        {s}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="search-wrapper" style={{ display: "none" }} ref={searchRef}>
+          </div>
+
+          <div style={{ padding: "12px 16px", display: "block" }} className="mobile-search-section">
+            <div ref={searchRef} style={{ position: "relative" }}>
               <form onSubmit={function(e) { e.preventDefault(); handleSearch(); }} className="search-form">
                 <input
                   type="text"
