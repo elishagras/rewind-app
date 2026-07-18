@@ -188,15 +188,15 @@ function MiniPlayer({ nowPlaying, expanded, onExpand, onEnded, onPrevious }) {
         </div>
         <div className="mini-player-controls">
           {onPrevious && (
-            <button className="mini-ctrl-btn" onClick={onPrevious} title="Previous">⏮</button>
+            <button className="mini-ctrl-btn" onClick={onPrevious}>⏮</button>
           )}
           <button className="mini-ctrl-btn play" onClick={handlePlayPause}>
             {isPlaying ? "⏸" : "▶"}
           </button>
           {onEnded && (
-            <button className="mini-ctrl-btn" onClick={onEnded} title="Next">⏭</button>
+            <button className="mini-ctrl-btn" onClick={onEnded}>⏭</button>
           )}
-          <button className="mini-ctrl-btn chevron" onClick={onExpand} title="Now Playing">
+          <button className="mini-ctrl-btn chevron" onClick={onExpand}>
             {expanded ? "↓" : "↑"}
           </button>
         </div>
