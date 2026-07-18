@@ -89,7 +89,7 @@ function MiniPlayer({ nowPlaying, expanded, onExpand, onEnded, onPrevious }) {
       containerRef.current.appendChild(div);
 
       playerInstanceRef.current = new window.YT.Player(divId, {
-        height: "220",
+        height: "200",
         width: "100%",
         videoId: nowPlaying.videoId,
         playerVars: { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1 },
@@ -155,41 +155,49 @@ function MiniPlayer({ nowPlaying, expanded, onExpand, onEnded, onPrevious }) {
 
   if (!nowPlaying) return null;
 
+  var thumbUrl = "https://img.youtube.com/vi/" + nowPlaying.videoId + "/mqdefault.jpg";
+
   return (
     <>
-      <div
-        ref={popupRef}
-        className="mini-player-iframe-container"
-        style={{ display: expanded ? "block" : "none" }}
-      >
-        <div className="mini-player-full-title">{nowPlaying.title}</div>
-        <div className="mini-player-full-artist">{nowPlaying.artist}</div>
-        <div ref={containerRef} style={{ marginTop: "12px", borderRadius: "8px", overflow: "hidden" }} />
-      </div>
+      {expanded && (
+        <div ref={popupRef} className="mini-player-iframe-container">
+          <div className="mini-player-full-header">
+            <img
+              className="mini-player-full-art"
+              src={thumbUrl}
+              alt={nowPlaying.title}
+            />
+            <div>
+              <div className="mini-player-full-title">{nowPlaying.title}</div>
+              <div className="mini-player-full-artist">{nowPlaying.artist}</div>
+            </div>
+          </div>
+          <div ref={containerRef} style={{ borderRadius: "8px", overflow: "hidden" }} />
+        </div>
+      )}
 
       <div className="mini-player">
-        <div
-          className="mini-player-thumb"
-          style={{ background: "#282828", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}
-        >
-          ♪
-        </div>
+        <img
+          className="mini-player-art"
+          src={thumbUrl}
+          alt={nowPlaying.title}
+        />
         <div className="mini-player-info-col">
           <div className="mini-player-title">{nowPlaying.title}</div>
           <div className="mini-player-artist">{nowPlaying.artist}</div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div className="mini-player-controls">
           {onPrevious && (
-            <button className="mini-player-expand" onClick={onPrevious} title="Previous">⏮</button>
+            <button className="mini-ctrl-btn" onClick={onPrevious} title="Previous">⏮</button>
           )}
-          <button className="mini-player-playpause" onClick={handlePlayPause}>
+          <button className="mini-ctrl-btn play" onClick={handlePlayPause}>
             {isPlaying ? "⏸" : "▶"}
           </button>
           {onEnded && (
-            <button className="mini-player-expand" onClick={onEnded} title="Next">⏭</button>
+            <button className="mini-ctrl-btn" onClick={onEnded} title="Next">⏭</button>
           )}
-          <button className="mini-player-expand" onClick={onExpand}>
-            {expanded ? "Collapse" : "Now Playing"}
+          <button className="mini-ctrl-btn chevron" onClick={onExpand} title="Now Playing">
+            {expanded ? "↓" : "↑"}
           </button>
         </div>
       </div>
@@ -356,13 +364,16 @@ export default function App() {
   const [selectedMoodId, setSelectedMoodId] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const searchRef = useRef(null);
+  const mobileSearchRef = useRef(null);
   const suggestTimer = useRef(null);
   const songRefs = useRef({});
 
   useEffect(function() {
     function handleClick(e) {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
-        setShowDropdown(false);
+        if (mobileSearchRef.current && !mobileSearchRef.current.contains(e.target)) {
+          setShowDropdown(false);
+        }
       }
     }
     document.addEventListener("mousedown", handleClick);
@@ -584,19 +595,114 @@ export default function App() {
     />
   );
 
+  function renderMobileTopBar(title) {
+    return (
+      <div className="mobile-top-bar">
+        <button className="hamburger" onClick={function() { setSidebarOpen(!sidebarOpen); }}>
+          <span /><span /><span />
+        </button>
+        <span className="mobile-top-bar-brand">{title}</span>
+        <div style={{ width: "38px" }} />
+      </div>
+    );
+  }
+
+  function renderSongList() {
+    return (
+      <div className="songs-list">
+        {songs.map(function(s, index) {
+          var isActive = activeSongIndex === index;
+          return (
+            <div
+              className="song-list-item"
+              key={index}
+              ref={function(el) { songRefs.current[index] = el; }}
+              style={{
+                border: isActive ? "1.5px solid #4f8ef7" : "1.5px solid transparent",
+                borderRadius: "12px",
+                transition: "border 0.3s"
+              }}
+            >
+              <div className="song-list-header">
+                <div
+                  className="song-number-badge"
+                  style={{ cursor: "pointer", background: isActive ? "#4f8ef7" : "#282828" }}
+                  onClick={function() {
+                    if (s.videoId) playSong(s.videoId, s.title, s.artist, index);
+                  }}
+                >
+                  {isActive ? "▶" : index + 1}
+                </div>
+                <div className="song-info">
+                  <div className="song-title">{s.title}</div>
+                  <div className="song-meta">
+                    {s.artist}
+                    <span className="song-year-badge">{s.year}</span>
+                  </div>
+                </div>
+              </div>
+
+              {s.reasoning && (
+                <p className="song-reasoning">{s.reasoning}</p>
+              )}
+
+              {s.videoId ? (
+                <div
+                  className="song-play-placeholder"
+                  style={{
+                    background: isActive ? "#1a2a4a" : undefined,
+                    borderColor: isActive ? "#4f8ef7" : undefined
+                  }}
+                  onClick={function() { playSong(s.videoId, s.title, s.artist, index); }}
+                >
+                  <span>{isActive ? "▶ Now playing in mini player" : "▶ Click to play"}</span>
+                </div>
+              ) : (
+                <div
+                  className="song-play-placeholder"
+                  style={{ color: "#4f8ef7" }}
+                  onClick={function() {
+                    window.open("https://www.youtube.com/results?search_query=" + encodeURIComponent(s.title), "_blank");
+                  }}
+                >
+                  <span>Search on YouTube</span>
+                </div>
+              )}
+
+              <div className="feedback-row">
+                <button
+                  className={"feedback-btn up" + (feedback[index] === "up" ? " active" : "")}
+                  onClick={function() {
+                    setFeedback(function(prev) { return { ...prev, [index]: "up" }; });
+                    logFamiliarSong(s.title, s.artist, s.year, selectedMoodId);
+                  }}
+                >
+                  Feels familiar
+                </button>
+                <button
+                  className={"feedback-btn down" + (feedback[index] === "down" ? " active" : "")}
+                  onClick={function() {
+                    setFeedback(function(prev) { return { ...prev, [index]: "down" }; });
+                    logUnfamiliarSong(s.title, s.artist, s.year, selectedMoodId);
+                  }}
+                >
+                  Not quite
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   if (page === "loading") {
     return (
       <>
         <div className="app-layout">
           <Sidebar page={page} setPage={setPage} isOpen={sidebarOpen} onClose={function() { setSidebarOpen(false); }} />
           <div className="main-content">
-            <div className="mobile-top-bar">
-              <button className="hamburger" onClick={function() { setSidebarOpen(!sidebarOpen); }}>
-                <span /><span /><span />
-              </button>
-              <span className="mobile-top-bar-brand">Rewind</span>
-              <div style={{ width: "38px" }} />
-            </div>
+            {renderMobileTopBar("Rewind")}
             <div className="loading-page">
               <h2 className="loading-headline">Reaching back into memory...</h2>
               <p className="loading-sub">Finding music that already knows you</p>
@@ -618,15 +724,7 @@ export default function App() {
         <div className="app-layout">
           <Sidebar page={page} setPage={setPage} isOpen={sidebarOpen} onClose={function() { setSidebarOpen(false); }} />
           <div className="main-content">
-            <div className="mobile-top-bar">
-              <button className="hamburger" onClick={function() { setSidebarOpen(!sidebarOpen); }}>
-                <span /><span /><span />
-              </button>
-              <span className="mobile-top-bar-brand">
-                {activeMoodForPlayer ? activeMoodForPlayer.title : "Your songs"}
-              </span>
-              <div style={{ width: "38px" }} />
-            </div>
+            {renderMobileTopBar(activeMoodForPlayer ? activeMoodForPlayer.title : "Your songs")}
             <div className="player-page">
               <div className="player-nav">
                 <div>
@@ -640,90 +738,7 @@ export default function App() {
                 <button className="back-btn" onClick={function() { setPage("home"); }}>Back</button>
               </div>
 
-              <div className="songs-list">
-                {songs.map(function(s, index) {
-                  var isActive = activeSongIndex === index;
-                  return (
-                    <div
-                      className="song-list-item"
-                      key={index}
-                      ref={function(el) { songRefs.current[index] = el; }}
-                      style={{
-                        border: isActive ? "1.5px solid #4f8ef7" : "1.5px solid transparent",
-                        borderRadius: "12px",
-                        transition: "border 0.3s"
-                      }}
-                    >
-                      <div className="song-list-header">
-                        <div
-                          className="song-number-badge"
-                          style={{ cursor: "pointer", background: isActive ? "#4f8ef7" : "#282828" }}
-                          onClick={function() {
-                            if (s.videoId) playSong(s.videoId, s.title, s.artist, index);
-                          }}
-                        >
-                          {isActive ? "▶" : index + 1}
-                        </div>
-                        <div className="song-info">
-                          <div className="song-title">{s.title}</div>
-                          <div className="song-meta">
-                            {s.artist}
-                            <span className="song-year-badge">{s.year}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {s.reasoning && (
-                        <p className="song-reasoning">{s.reasoning}</p>
-                      )}
-
-                      {s.videoId ? (
-                        <div
-                          className="song-play-placeholder"
-                          style={{
-                            background: isActive ? "#1a2a4a" : undefined,
-                            borderColor: isActive ? "#4f8ef7" : undefined
-                          }}
-                          onClick={function() { playSong(s.videoId, s.title, s.artist, index); }}
-                        >
-                          <span>{isActive ? "▶ Now playing in mini player" : "▶ Click to play"}</span>
-                        </div>
-                      ) : (
-                        <div
-                          className="song-play-placeholder"
-                          style={{ color: "#4f8ef7" }}
-                          onClick={function() {
-                            window.open("https://www.youtube.com/results?search_query=" + encodeURIComponent(s.title), "_blank");
-                          }}
-                        >
-                          <span>Search on YouTube</span>
-                        </div>
-                      )}
-
-                      <div className="feedback-row">
-                        <button
-                          className={"feedback-btn up" + (feedback[index] === "up" ? " active" : "")}
-                          onClick={function() {
-                            setFeedback(function(prev) { return { ...prev, [index]: "up" }; });
-                            logFamiliarSong(s.title, s.artist, s.year, selectedMoodId);
-                          }}
-                        >
-                          Feels familiar
-                        </button>
-                        <button
-                          className={"feedback-btn down" + (feedback[index] === "down" ? " active" : "")}
-                          onClick={function() {
-                            setFeedback(function(prev) { return { ...prev, [index]: "down" }; });
-                            logUnfamiliarSong(s.title, s.artist, s.year, selectedMoodId);
-                          }}
-                        >
-                          Not quite
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              {renderSongList()}
 
               <button
                 className="generate-more-btn"
@@ -752,13 +767,7 @@ export default function App() {
         <div className="app-layout">
           <Sidebar page={page} setPage={setPage} isOpen={sidebarOpen} onClose={function() { setSidebarOpen(false); }} />
           <div className="main-content">
-            <div className="mobile-top-bar">
-              <button className="hamburger" onClick={function() { setSidebarOpen(!sidebarOpen); }}>
-                <span /><span /><span />
-              </button>
-              <span className="mobile-top-bar-brand">You may also like</span>
-              <div style={{ width: "38px" }} />
-            </div>
+            {renderMobileTopBar("You may also like")}
             <div className="recs-page">
               <div className="recs-nav">
                 <span className="player-title">You may also like</span>
@@ -833,13 +842,7 @@ export default function App() {
         <div className="app-layout">
           <Sidebar page={page} setPage={setPage} isOpen={sidebarOpen} onClose={function() { setSidebarOpen(false); }} />
           <div className="main-content">
-            <div className="mobile-top-bar">
-              <button className="hamburger" onClick={function() { setSidebarOpen(!sidebarOpen); }}>
-                <span /><span /><span />
-              </button>
-              <span className="mobile-top-bar-brand">My Taste</span>
-              <div style={{ width: "38px" }} />
-            </div>
+            {renderMobileTopBar("My Taste")}
             <MyTastePage />
           </div>
         </div>
@@ -853,13 +856,7 @@ export default function App() {
       <div className="app-layout">
         <Sidebar page={page} setPage={setPage} isOpen={sidebarOpen} onClose={function() { setSidebarOpen(false); }} />
         <div className="main-content">
-          <div className="mobile-top-bar">
-            <button className="hamburger" onClick={function() { setSidebarOpen(!sidebarOpen); }}>
-              <span /><span /><span />
-            </button>
-            <span className="mobile-top-bar-brand">Rewind</span>
-            <div style={{ width: "38px" }} />
-          </div>
+          {renderMobileTopBar("Rewind")}
 
           <div className="top-bar">
             <div>
@@ -885,11 +882,7 @@ export default function App() {
                 <div className="search-dropdown">
                   {suggestions.map(function(s, i) {
                     return (
-                      <div
-                        key={i}
-                        className="search-dropdown-item"
-                        onClick={function() { handleSearch(s); }}
-                      >
+                      <div key={i} className="search-dropdown-item" onClick={function() { handleSearch(s); }}>
                         {s}
                       </div>
                     );
@@ -899,11 +892,8 @@ export default function App() {
             </div>
           </div>
 
-          <div className="search-wrapper" style={{ display: "none" }} ref={searchRef}>
-          </div>
-
-          <div style={{ padding: "12px 16px", display: "block" }} className="mobile-search-section">
-            <div ref={searchRef} style={{ position: "relative" }}>
+          <div className="mobile-search-section">
+            <div ref={mobileSearchRef} style={{ position: "relative" }}>
               <form onSubmit={function(e) { e.preventDefault(); handleSearch(); }} className="search-form">
                 <input
                   type="text"
@@ -922,11 +912,7 @@ export default function App() {
                 <div className="search-dropdown">
                   {suggestions.map(function(s, i) {
                     return (
-                      <div
-                        key={i}
-                        className="search-dropdown-item"
-                        onClick={function() { handleSearch(s); }}
-                      >
+                      <div key={i} className="search-dropdown-item" onClick={function() { handleSearch(s); }}>
                         {s}
                       </div>
                     );
@@ -937,27 +923,6 @@ export default function App() {
           </div>
 
           <div className="home-columns">
-            <div className="mood-panel">
-              <p className="mood-panel-title">How are you feeling?</p>
-              <div className="mood-grid">
-                {MOOD_PRESETS.map(function(mood) {
-                  return (
-                    <div
-                      key={mood.id}
-                      className="mood-card"
-                      onClick={function() { handleMoodClick(mood); }}
-                    >
-                      <img className="mood-card-img" src={mood.image} alt={mood.title} />
-                      <div className="mood-card-overlay">
-                        <div className="mood-card-title">{mood.title}</div>
-                        <div className="mood-card-subtitle">{mood.subtitle}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
             <div className="form-panel">
               <div>
                 <div className="form-section-title">Your memory</div>
@@ -982,7 +947,7 @@ export default function App() {
                 <textarea
                   value={favorites}
                   onChange={function(e) { setFavorites(e.target.value); }}
-                  placeholder="Kirk Franklin, Donnie McClurkin, Tasha Cobbs... (leave blank to let Rewind decide)"
+                  placeholder="Kirk Franklin, Donnie McClurkin, Tasha Cobbs..."
                   rows={3}
                 />
               </div>
@@ -994,6 +959,27 @@ export default function App() {
               >
                 Rewind
               </button>
+            </div>
+
+            <div className="mood-panel">
+              <p className="mood-panel-title">How are you feeling?</p>
+              <div className="mood-grid">
+                {MOOD_PRESETS.map(function(mood) {
+                  return (
+                    <div
+                      key={mood.id}
+                      className="mood-card"
+                      onClick={function() { handleMoodClick(mood); }}
+                    >
+                      <img className="mood-card-img" src={mood.image} alt={mood.title} />
+                      <div className="mood-card-overlay">
+                        <div className="mood-card-title">{mood.title}</div>
+                        <div className="mood-card-subtitle">{mood.subtitle}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
